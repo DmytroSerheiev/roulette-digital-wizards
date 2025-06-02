@@ -104,19 +104,27 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
           <div className="flex items-center h-full gap-1 py-0 relative z-0">
             {(() => {
               const iconList: string[] = [];
-              let lastColor: string | null = null;
-              for (let i = 0; i < VISIBLE_ICONS; i++) {
-                let color: string;
-                if (i === CENTER_INDEX) {
-                  color = displayedIcon;
-                } else {
-                  do {
-                    color = colors[Math.floor(Math.random() * colors.length)];
-                  } while (color === lastColor);
-                }
-                iconList.push(color);
-                lastColor = color;
-              }
+let lastColor: string | null = null;
+
+for (let i = 0; i < VISIBLE_ICONS; i++) {
+  let color: string;
+
+  if (i === CENTER_INDEX) {
+    // Центр — це строго displayedIcon
+    color = displayedIcon;
+  } else {
+    const forbidden = [lastColor];
+    if (i === CENTER_INDEX - 1) forbidden.push(displayedIcon); // ліворуч від центру
+    if (i === CENTER_INDEX + 1) forbidden.push(displayedIcon); // праворуч від центру
+
+    const availableColors = colors.filter((c) => !forbidden.includes(c));
+    color = availableColors[Math.floor(Math.random() * availableColors.length)];
+  }
+
+  iconList.push(color);
+  lastColor = color;
+}
+
 
               return iconList.map((color, idx) => {
                 const isCenter = idx === CENTER_INDEX;
