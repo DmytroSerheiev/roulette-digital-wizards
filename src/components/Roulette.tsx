@@ -13,23 +13,75 @@ const iconMap: Record<string, string> = {
 
 export default function Roulette({ onWin }: { onWin: (color: string) => void }) {
   const [centerIcon, setCenterIcon] = useState<string>('red');
+  const [displayedIcon, setDisplayedIcon] = useState<string>('red');
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [barK, setBarK] = useState(0);
+  const [showRolling, setShowRolling] = useState(false);
+  const [showBar, setShowBar] = useState(true);
+  const [isWinnerShown, setIsWinnerShown] = useState(false);
+  const [cycleRunning, setCycleRunning] = useState(false);
 
   const ICON_WIDTH = 90;
   const VISIBLE_ICONS = 13;
   const CENTER_INDEX = Math.floor(VISIBLE_ICONS / 2);
-  const GAP = 20000; // 20 секунд
+
+  const GAP = 60000; // повний цикл рулетки
+  const FIRST_PHASE = 20000; // тривалість полоси 
+  const SECOND_PHASE = 40000; // тривалість другоє фази після полоси
+  const RESULT_PAUSE = 4000; // тривалість показу іконки переможці до початку нового циклу
+
+
+  
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setBarK((k) => k + 1);
-      const icon = selectedIcon ?? colors[Math.floor(Math.random() * colors.length)];
-      setCenterIcon(icon);
-      onWin(icon);
-    }, GAP);
+    let rollingInterval: NodeJS.Timeout;
+    let secondPhaseTimeout: NodeJS.Timeout;
+    let fullCycleTimeout: NodeJS.Timeout;
+    let postWinTimeout: NodeJS.Timeout;
 
-    return () => clearInterval(interval);
+    const startCycle = () => {
+      setShowBar(true);
+      setShowRolling(false);
+      setIsWinnerShown(false);
+      setCycleRunning(true);
+
+      rollingInterval = setInterval(() => {
+        const fake = colors[Math.floor(Math.random() * colors.length)];
+        setDisplayedIcon(fake);
+      }, 30010);
+
+      secondPhaseTimeout = setTimeout(() => {
+        setShowBar(false);
+      }, FIRST_PHASE);
+
+      fullCycleTimeout = setTimeout(() => {
+        clearInterval(rollingInterval);
+
+        const final = selectedIcon ?? colors[Math.floor(Math.random() * colors.length)];
+        setCenterIcon(final);
+        setDisplayedIcon(final);
+        setIsWinnerShown(true);
+        setShowRolling(false);
+        setCycleRunning(false);
+
+        onWin(final);
+
+        postWinTimeout = setTimeout(() => {
+          setIsWinnerShown(false);
+          setBarK((k) => k + 1);
+          startCycle();
+        }, RESULT_PAUSE);
+      }, GAP);
+    };
+
+    startCycle();
+
+    return () => {
+      clearInterval(rollingInterval);
+      clearTimeout(secondPhaseTimeout);
+      clearTimeout(fullCycleTimeout);
+      clearTimeout(postWinTimeout);
+    };
   }, [selectedIcon]);
 
   const handleSelect = (color: string) => {
@@ -38,79 +90,76 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
 
   return (
     <div className="flex flex-col items-center">
-      {/* Стрілочка */}
       <div className="relative w-full max-w-6xl mb-1">
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 rotate-180 z-10
                         w-0 h-0 border-l-[10px] border-r-[10px] border-b-[14px]
                         border-l-transparent border-r-transparent border-b-yellow-400" />
       </div>
 
-      {/* Обгортка з рулеткою + прогрес-бар */}
       <div className="relative w-[1210px]">
-        {/* Рулетка */}
         <div className="relative overflow-hidden rounded-lg bg-neutral-800 h-[100px] mb-[4px]">
-          {/* Ліва тінь */}
           <div className="absolute left-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-          {/* Права тінь */}
           <div className="absolute right-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-l from-black/80 via-black/40 to-transparent" />
 
-          {/* Контент іконок */}
           <div className="flex items-center h-full gap-1 py-0 relative z-0">
-            {/* Генеруємо список іконок без підрядних повторів */}
             {(() => {
-  const iconList: string[] = [];
-  let lastColor: string | null = null;
-  for (let i = 0; i < VISIBLE_ICONS; i++) {
-    if (i === CENTER_INDEX) {
-      iconList.push(centerIcon);
-      lastColor = centerIcon;
-    } else {
-      let color: string;
-      do {
-        color = colors[Math.floor(Math.random() * colors.length)];
-      } while (color === lastColor);
-      iconList.push(color);
-      lastColor = color;
-    }
-  }
+              const iconList: string[] = [];
+              let lastColor: string | null = null;
+              for (let i = 0; i < VISIBLE_ICONS; i++) {
+                let color: string;
+                if (i === CENTER_INDEX) {
+                  color = displayedIcon;
+                } else {
+                  do {
+                    color = colors[Math.floor(Math.random() * colors.length)];
+                  } while (color === lastColor);
+                }
+                iconList.push(color);
+                lastColor = color;
+              }
 
-  return iconList.map((color, idx) => {
-    const isCenter = idx === CENTER_INDEX;
-    return (
-      <div key={idx} className="w-[90px] h-[90px] flex items-center justify-center relative shrink-0">
-        <Image
-          src={iconMap[color]}
-          alt="icon"
-          width={90}
-          height={90}
-          unoptimized
-          className="brightness-75"
-        />
-        {isCenter && (
-          <div className="absolute flex flex-col items-center justify-center text-white font-bold text-xs z-20 ">
-            <span className="text-[10px]">ROLLING IN:</span>
-            <span className="text-[20px]">14.26</span>
+              return iconList.map((color, idx) => {
+                const isCenter = idx === CENTER_INDEX;
+                return (
+                  <div key={idx} className="w-[90px] h-[90px] flex items-center justify-center relative shrink-0">
+                    <Image
+                      src={iconMap[color]}
+                      alt="icon"
+                      width={90}
+                      height={90}
+                      unoptimized
+                      className="brightness-75"
+                    />
+                    {isCenter && (
+                      <div className="absolute flex flex-col items-center justify-center text-white font-bold text-xs z-20">
+                        {isWinnerShown ? (
+                          <div className="absolute flex flex-col items-center justify-center text-white font-bold text-xs z-20 animate-pulse"><span className="text-[8px]">ROLLING IN:</span>
+                            <span className="text-[20px]">14.26</span></div>
+                        ) : showRolling ? (
+                          <>
+                            
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+
+        {showBar && (
+          <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-600 z-20 overflow-hidden -mt-2">
+            <div
+              key={barK}
+              className="h-full bg-green-500"
+              style={{ animation: `bar ${FIRST_PHASE}ms linear forwards` }}
+            />
           </div>
         )}
       </div>
-    );
-  });
-})()}
 
-          </div>
-        </div>
-
-        {/* Прогрес-бар зверху і завжди поверх */}
-        <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-600 z-20 overflow-hidden -mt-2">
-          <div
-            key={barK}
-            className="h-full bg-green-500"
-            style={{ animation: `bar ${GAP}ms linear forwards` }}
-          />
-        </div>
-      </div>
-
-      {/* Вибір вручну */}
       <div className="flex gap-4 mt-6">
         {colors.map((color) => (
           <div
