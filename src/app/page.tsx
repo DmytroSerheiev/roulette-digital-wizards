@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Roulette from '../components/Roulette';
 import RollStats, { Counters } from '../components/RollStats';
 import RandomIconRow from '../components/RandomIconRow';
+import BetTables from '../components/BetTables';
 
 const init: Counters = { black: 0, red: 0, green: 0, joker: 0 };
 
@@ -34,6 +35,7 @@ export default function Page() {
 
         {/* 3) рулетка під ними */}
         <Roulette onWin={handleWin} />
+        <BetTables />
       </div>
     </div>
   );

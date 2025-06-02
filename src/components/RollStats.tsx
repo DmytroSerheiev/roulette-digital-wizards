@@ -5,11 +5,11 @@ import Image from 'next/image';
 
 export type Counters = Record<'black' | 'red' | 'green' | 'joker', number>;
 
-const order: (keyof Counters)[] = ['black', 'red', 'green', 'joker'];
+const order: (keyof Counters)[] = ['red', 'black', 'green', 'joker'];
 
 const iconMap: Record<keyof Counters, string> = {
-  black: '/icons/icons3.png',
   red:   '/icons/icons1.png',
+  black: '/icons/icons3.png',
   green: '/icons/icons2.png',
   joker: '/icons/icons4.png',
 };
