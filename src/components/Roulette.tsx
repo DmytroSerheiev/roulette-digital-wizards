@@ -106,10 +106,11 @@ export default function Roulette() {
     <div className="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6">
       <div className="relative w-full max-w-6xl mb-4">
         <div
-          className="absolute top-[60px] left-1/2 -translate-x-1/2 z-10
-                     w-0 h-0 border-l-[10px] border-r-[10px] border-b-[14px]
-                     border-l-transparent border-r-transparent border-b-yellow-400"
-        />
+  className="absolute -top-[20px] left-1/2 -translate-x-1/2 rotate-180 z-10
+             w-0 h-0 border-l-[10px] border-r-[10px] border-b-[14px]
+             border-l-transparent border-r-transparent border-b-yellow-400"
+/>
+
 
         <div className="overflow-hidden rounded-lg bg-neutral-800 h-[100px]">
           <div
