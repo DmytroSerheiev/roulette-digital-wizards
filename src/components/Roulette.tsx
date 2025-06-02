@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
-/* ---- 1. дані ---- */
+/* --- вихідні дані --- */
 const colors = ['red', 'black', 'green', 'joker'];
 const iconMap: Record<string, string> = {
   red:   '/icons/icons1.png',
@@ -12,140 +12,140 @@ const iconMap: Record<string, string> = {
   joker: '/icons/icons4.png',
 };
 
-/* ---- 2. компонент ---- */
-export default function Roulette() {
-  const wrapperRef   = useRef<HTMLDivElement>(null);   // обгортка з overflow-hidden
-  const trackRef     = useRef<HTMLDivElement>(null);   // сам трек, що трансформується
+/* -------------------------------------------------------
+   ↓↓↓   Єдина різниця – приймаємо onWin у пропсах   ↓↓↓
+------------------------------------------------------- */
+export default function Roulette({
+  onWin,                               // 👈 новий проп (обов’язковий)
+}: {
+  onWin: (color: string) => void;      //   тип: колір, що випав
+}) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const trackRef   = useRef<HTMLDivElement>(null);
 
-  const [items, setItems]         = useState<string[]>([]);
-  const [spinning, setSpinning]   = useState(false);
-  const [pause, setPause]         = useState(true);
-  const [barKey, setBarKey]       = useState(0);
-  const [offset, setOffset]       = useState(0);       // накопичена translateX
-  const [winner, setWinner]       = useState<number|null>(null);
+  /* --- стейти --- */
+  const [items,  setItems]  = useState<string[]>([]);
+  const [spin,   setSpin]   = useState(false);
+  const [pause,  setPause]  = useState(true);
+  const [barK,   setBarK]   = useState(0);
+  const [off,    setOff]    = useState(0);
+  const [winIdx, setWinIdx] = useState<number | null>(null);
 
-  /* налаштування */
-  const ITEM_W   = 90;
-  const SPIN_N   = 20;
-  const SPIN_MS  = 3000;
-  const PAUSE_MS = 2000;
-  const MAX      = 1000;   // ліміт елементів у DOM
-  const SAFE     = 500;
+  /* --- константи --- */
+  const W   = 90;          // ширина однієї іконки
+  const N   = 20;          // мінімум елементів за спін
+  const T   = 3000;        // тривалість спіну
+  const GAP = 2000;        // пауза до наступного спіну
 
-  /* ---- 3. початкові 40 картинок ---- */
+  /* --- 1. стартові 40 елементів --- */
   useEffect(() => {
     setItems(gen(40, null));
-    startPause();
+    beginPause();
   }, []);
 
-  /* ---- 4. коли пауза закінчилась → починаємо спін ---- */
+  /* --- 2. якщо пауза закінчилась → крутимо --- */
   useEffect(() => {
-    if (!pause && !spinning) spin();
-  }, [pause, spinning]);
+    if (!pause && !spin) roll();
+  }, [pause, spin]);
 
-  /* ---- 5. старт паузи (progress-bar) ---- */
-  const startPause = () => {
-    setBarKey(k => k + 1);   // перезапускаємо CSS-анімацію
+  /* ----------------------------------------------------
+     Ф-ція: запускає відлік паузи (progress-bar зверху)
+  ---------------------------------------------------- */
+  const beginPause = () => {
+    setBarK(k => k + 1);
     setPause(true);
-    setTimeout(() => setPause(false), PAUSE_MS);
+    setTimeout(() => setPause(false), GAP);
   };
 
-  /* ---- 6. сам спін ---- */
-  const spin = () => {
+  /* ----------------------------------------------------
+     Ф-ція: виконує сам спін
+  ---------------------------------------------------- */
+  const roll = () => {
     const track = trackRef.current;
     if (!track) return;
+    setSpin(true);
 
-    setSpinning(true);
+    /* 1. на скільки прокрутити */
+    const rnd   = Math.floor(Math.random() * 10);
+    const dx    = W * (N + rnd);
+    const nextOffset = off + dx;
 
-    /* 6.1 скільки крутимо */
-    const spins   = SPIN_N + Math.floor(Math.random() * 10);
-    const dx      = ITEM_W * spins;
-    const newOff  = offset + dx;
+    /* 2. додаємо нові елементи наперед */
+    const more = gen(N + rnd, items.at(-1) || null);
+    const combo = [...items, ...more];
+    setItems(combo);
 
-    /* 6.2 підкидаємо нові картинки */
-    const next = gen(spins, items[items.length - 1] || null);
-    const all  = [...items, ...next];
-    setItems(all);
+    /* 3. сама анімація */
+    track.style.transition = `transform ${T}ms cubic-bezier(0.25,1,0.5,1)`;
+    track.style.transform  = `translateX(-${nextOffset}px)`;
 
-    /* 6.3 сама анімація */
-    track.style.transition = `transform ${SPIN_MS}ms cubic-bezier(0.25,1,0.5,1)`;
-    track.style.transform  = `translateX(-${newOff}px)`;
-
-    /* 6.4 коли зупинилась */
-    const onEnd = () => {
-      track.removeEventListener('transitionend', onEnd);
+    /* 4. коли анімація закінчилась */
+    const done = () => {
+      track.removeEventListener('transitionend', done);
       track.style.transition = 'none';
-      setSpinning(false);
-      let finalOff = newOff;
+      setSpin(false);
+      setOff(nextOffset);
 
-      /* 6.4.1 обрізаємо надлишок, щоб не ріс DOM */
-      if (all.length > MAX) {
-        const cut      = all.length - SAFE;
-        const sliced   = all.slice(cut);
-        finalOff      -= ITEM_W * cut;
-        track.style.transform = `translateX(-${finalOff}px)`;
-        setItems(sliced);
-      }
+      /* ----- визначаємо виграшну іконку ----- */
+      const wrapRect = wrapperRef.current!.getBoundingClientRect();
+      const centerX  = wrapRect.left + wrapRect.width / 2;
+      const icons    = track.querySelectorAll<HTMLDivElement>('.icon');
 
-      /* 6.4.2 шукаємо найцентральнішу іконку */
-      const wrapperRect   = wrapperRef.current!.getBoundingClientRect();
-      const centerX       = wrapperRect.left + wrapperRect.width / 2;
-      const icons         = track.querySelectorAll<HTMLDivElement>('.icon');
-
-      let min = Infinity, idx = -1;
+      let best = -1, min = Infinity;
       icons.forEach((el, i) => {
         const r = el.getBoundingClientRect();
         const c = r.left + r.width / 2;
         const d = Math.abs(c - centerX);
-        if (d < min) { min = d; idx = i; }
+        if (d < min) { min = d; best = i; }
       });
-      setWinner(idx);
 
-      /* 6.4.3 зберігаємо offset і запускаємо паузу */
-      setOffset(finalOff);
-      startPause();
+      setWinIdx(best);
+      /* ===>  СПОВІЩАЄМО БАТЬКУ, ЯКИЙ КОЛІР ВИПАВ  <=== */
+      if (best >= 0) onWin(combo[best]);        // 👈 ЄДИНИЙ НОВИЙ ВИКЛИК
+
+      /* запускаємо наступний відлік */
+      beginPause();
     };
-    track.addEventListener('transitionend', onEnd);
+
+    track.addEventListener('transitionend', done);
   };
 
-  /* ---- 7. генератор різношерстих картинок ---- */
-  const gen = (n: number, last: string|null) => {
-    const out: string[] = [];
+  /* --- генератор: n нових кольорів, не дублюючи сусіда --- */
+  const gen = (n: number, last: string | null) => {
+    const res: string[] = [];
     let prev = last;
     for (let i = 0; i < n; i++) {
-      let next: string;
-      do next = colors[Math.random() * colors.length | 0];
-      while (next === prev);
-      out.push(next); prev = next;
+      let x: string;
+      do x = colors[Math.random() * colors.length | 0];
+      while (x === prev);
+      res.push(x); prev = x;
     }
-    return out;
+    return res;
   };
 
-  /* ---- 8. UI ---- */
+  /* ---  UI  --- */
   return (
-    <div className="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6">
-      {/* ▶︎ стрілочка */}
+    <div className="flex flex-col items-center">
+      {/* стрілочка */}
       <div className="relative w-full max-w-6xl mb-4">
-        <div className="absolute -top-[20px] left-1/2 -translate-x-1/2 rotate-180 z-10
+        <div className="absolute -top-5 left-1/2 -translate-x-1/2 rotate-180 z-10
                         w-0 h-0 border-l-[10px] border-r-[10px] border-b-[14px]
                         border-l-transparent border-r-transparent border-b-yellow-400" />
 
-        {/* ▻ трек іконок */}
+        {/* обгортка */}
         <div ref={wrapperRef} className="overflow-hidden rounded-lg bg-neutral-800 h-[100px]">
-          <div ref={trackRef} className="flex items-center h-full gap-1 py-0">
-            {items.map((it, i) => {
-              const win = !spinning && winner === i;
+          <div ref={trackRef} className="flex items-center h-full gap-1">
+            {items.map((c, i) => {
+              const highlight = !spin && winIdx === i;
               return (
                 <div
                   key={i}
-                  className={`icon w-[90px] h-[90px] flex items-center justify-center shrink-0 relative
-                              ${win ? 'border-4 border-yellow-400 rounded-xl' : ''}`}
+                  className={`icon w-[90px] h-[90px] shrink-0 flex items-center justify-center relative
+                              ${highlight ? 'border-4 border-yellow-400 rounded-xl' : ''}`}
                 >
-                  <Image src={iconMap[it]} alt={it} width={100} height={100} unoptimized />
-                  {win && (
-                    <span className="absolute bottom-1 text-yellow-400 font-bold text-sm">
-                      WIN
-                    </span>
+                  <Image src={iconMap[c]} alt={c} width={100} height={100} unoptimized />
+                  {highlight && (
+                    <span className="absolute bottom-1 text-yellow-400 text-sm font-bold">WIN</span>
                   )}
                 </div>
               );
@@ -154,23 +154,18 @@ export default function Roulette() {
         </div>
       </div>
 
-      {/* ▻ прогрес-бар очікування */}
-      <div className="w-full max-w-7xl h-1 bg-gray-600 rounded overflow-hidden mt-2">
-        {pause ? (
-          <div key={barKey}
+      {/* прогрес-бар паузи */}
+      <div className="w-full max-w-6xl h-1 bg-gray-600 rounded overflow-hidden">
+        {pause && (
+          <div key={barK}
                className="h-full bg-green-500"
-               style={{ animation: `bar ${PAUSE_MS}ms linear forwards` }} />
-        ) : (
-          <div className="h-full bg-transparent" />
+               style={{ animation: `bar ${GAP}ms linear forwards` }} />
         )}
       </div>
 
-      {/* локальний CSS для barra */}
+      {/* локальний CSS для бара */}
       <style jsx>{`
-        @keyframes bar {
-          from { width: 100%; }
-          to   { width:   0%; }
-        }
+        @keyframes bar { from { width: 100%; } to { width: 0%; } }
       `}</style>
     </div>
   );
