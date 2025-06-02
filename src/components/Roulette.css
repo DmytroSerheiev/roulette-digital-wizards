@@ -1,0 +1,74 @@
+/* Roulette.css */
+.roulette-wrapper {
+  background: black;
+  color: white;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.roulette-track-container {
+  position: relative;
+  width: 100%;
+  max-width: 1440px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border: 1px solid #4b5563;
+  border-radius: 0.5rem;
+  background-color: #1f2937;
+}
+
+.roulette-marker {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 16px solid #facc15; /* yellow-400 */
+}
+
+.roulette-track {
+  display: flex;
+  transition: transform 3s cubic-bezier(0.22, 0.1, 0.65, 1);
+  will-change: transform;
+}
+
+.roulette-item {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #374151; /* neutral-700 */
+  flex-shrink: 0;
+}
+
+.progress-bar-container {
+  width: 100%;
+  max-width: 1440px;
+  height: 8px;
+  background-color: #4b5563;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 100%;
+  background-color: #22c55e; /* green-500 */
+  transform-origin: left;
+  transition: none;
+}
+
+/* Активна анімація прогресу */
+.progress-bar.active {
+  transition: width 2s linear;
+  width: 0%;
+}
