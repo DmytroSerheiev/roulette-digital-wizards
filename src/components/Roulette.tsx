@@ -3,127 +3,54 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
-/* --- вихідні дані --- */
 const colors = ['red', 'black', 'green', 'joker'];
 const iconMap: Record<string, string> = {
-  red:   '/icons/icons1.png',
+  red: '/icons/icons1.png',
   green: '/icons/icons2.png',
   black: '/icons/icons3.png',
   joker: '/icons/icons4.png',
 };
 
-/* -------------------------------------------------------
-   ↓↓↓   Єдина різниця – приймаємо onWin у пропсах   ↓↓↓
-------------------------------------------------------- */
 export default function Roulette({
-  onWin,                               // 👈 новий проп (обов’язковий)
+  onWin,
 }: {
-  onWin: (color: string) => void;      //   тип: колір, що випав
+  onWin: (color: string) => void;
 }) {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const trackRef   = useRef<HTMLDivElement>(null);
+  const [centerIcon, setCenterIcon] = useState<string>('red');
+  const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [barK, setBarK] = useState(0);
 
-  /* --- стейти --- */
-  const [items,  setItems]  = useState<string[]>([]);
-  const [spin,   setSpin]   = useState(false);
-  const [pause,  setPause]  = useState(true);
-  const [barK,   setBarK]   = useState(0);
-  const [off,    setOff]    = useState(0);
-  const [winIdx, setWinIdx] = useState<number | null>(null);
+  const ICON_WIDTH = 90;
+  const VISIBLE_ICONS = 13;
+  const CENTER_INDEX = Math.floor(VISIBLE_ICONS / 2);
+  const GAP = 2000;
 
-  /* --- константи --- */
-  const W   = 90;          // ширина однієї іконки
-  const N   = 20;          // мінімум елементів за спін
-  const T   = 3000;        // тривалість спіну
-  const GAP = 2000;        // пауза до наступного спіну
-
-  /* --- 1. стартові 40 елементів --- */
   useEffect(() => {
-    setItems(gen(40, null));
-    beginPause();
-  }, []);
+    const interval = setInterval(() => {
+      setBarK((k) => k + 1);
+      const icon =
+        selectedIcon ?? colors[Math.floor(Math.random() * colors.length)];
+      setCenterIcon(icon);
+      setHistory((h) => [...h, icon]);
+      onWin(icon);
+    }, GAP);
+    return () => clearInterval(interval);
+  }, [selectedIcon]);
 
-  /* --- 2. якщо пауза закінчилась → крутимо --- */
-  useEffect(() => {
-    if (!pause && !spin) roll();
-  }, [pause, spin]);
+  const counts = colors.reduce((acc, color) => {
+    acc[color] = history.filter((c) => c === color).length;
+    return acc;
+  }, {} as Record<string, number>);
 
-  /* ----------------------------------------------------
-     Ф-ція: запускає відлік паузи (progress-bar зверху)
-  ---------------------------------------------------- */
-  const beginPause = () => {
-    setBarK(k => k + 1);
-    setPause(true);
-    setTimeout(() => setPause(false), GAP);
-  };
-
-  /* ----------------------------------------------------
-     Ф-ція: виконує сам спін
-  ---------------------------------------------------- */
-  const roll = () => {
-    const track = trackRef.current;
-    if (!track) return;
-    setSpin(true);
-
-    /* 1. на скільки прокрутити */
-    const rnd   = Math.floor(Math.random() * 10);
-    const dx    = W * (N + rnd);
-    const nextOffset = off + dx;
-
-    /* 2. додаємо нові елементи наперед */
-    const more = gen(N + rnd, items.at(-1) || null);
-    const combo = [...items, ...more];
-    setItems(combo);
-
-    /* 3. сама анімація */
-    track.style.transition = `transform ${T}ms cubic-bezier(0.25,1,0.5,1)`;
-    track.style.transform  = `translateX(-${nextOffset}px)`;
-
-    /* 4. коли анімація закінчилась */
-    const done = () => {
-      track.removeEventListener('transitionend', done);
-      track.style.transition = 'none';
-      setSpin(false);
-      setOff(nextOffset);
-
-      /* ----- визначаємо виграшну іконку ----- */
-      const wrapRect = wrapperRef.current!.getBoundingClientRect();
-      const centerX  = wrapRect.left + wrapRect.width / 2;
-      const icons    = track.querySelectorAll<HTMLDivElement>('.icon');
-
-      let best = -1, min = Infinity;
-      icons.forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        const c = r.left + r.width / 2;
-        const d = Math.abs(c - centerX);
-        if (d < min) { min = d; best = i; }
-      });
-
-      setWinIdx(best);
-      /* ===>  СПОВІЩАЄМО БАТЬКУ, ЯКИЙ КОЛІР ВИПАВ  <=== */
-      if (best >= 0) onWin(combo[best]);        // 👈 ЄДИНИЙ НОВИЙ ВИКЛИК
-
-      /* запускаємо наступний відлік */
-      beginPause();
-    };
-
-    track.addEventListener('transitionend', done);
-  };
-
-  /* --- генератор: n нових кольорів, не дублюючи сусіда --- */
-  const gen = (n: number, last: string | null) => {
-    const res: string[] = [];
-    let prev = last;
-    for (let i = 0; i < n; i++) {
-      let x: string;
-      do x = colors[Math.random() * colors.length | 0];
-      while (x === prev);
-      res.push(x); prev = x;
+  const handleSelect = (color: string) => {
+    if (selectedIcon === color) {
+      setSelectedIcon(null);
+    } else {
+      setSelectedIcon(color);
     }
-    return res;
   };
 
-  /* ---  UI  --- */
   return (
     <div className="flex flex-col items-center">
       {/* стрілочка */}
@@ -133,18 +60,24 @@ export default function Roulette({
                         border-l-transparent border-r-transparent border-b-yellow-400" />
 
         {/* обгортка */}
-        <div ref={wrapperRef} className="overflow-hidden rounded-lg bg-neutral-800 h-[100px]">
-          <div ref={trackRef} className="flex items-center h-full gap-1">
-            {items.map((c, i) => {
-              const highlight = !spin && winIdx === i;
+        <div className="overflow-hidden rounded-lg bg-neutral-800 h-[100px] w-[1170px]">
+          <div className="flex items-center h-full gap-1 py-0">
+            {Array.from({ length: VISIBLE_ICONS }).map((_, idx) => {
+              const isCenter = idx === CENTER_INDEX;
               return (
                 <div
-                  key={i}
-                  className={`icon w-[90px] h-[90px] shrink-0 flex items-center justify-center relative
-                              ${highlight ? 'border-4 border-yellow-400 rounded-xl' : ''}`}
+                  key={idx}
+                  className={`w-[90px] h-[90px] flex items-center justify-center relative shrink-0
+                    ${isCenter ? 'border-4 border-yellow-400 rounded-xl' : ''}`}
                 >
-                  <Image src={iconMap[c]} alt={c} width={100} height={100} unoptimized />
-                  {highlight && (
+                  <Image
+                    src={iconMap[isCenter ? centerIcon : colors[Math.floor(Math.random() * colors.length)]]}
+                    alt="icon"
+                    width={70}
+                    height={70}
+                    unoptimized
+                  />
+                  {isCenter && (
                     <span className="absolute bottom-1 text-yellow-400 text-sm font-bold">WIN</span>
                   )}
                 </div>
@@ -155,18 +88,34 @@ export default function Roulette({
       </div>
 
       {/* прогрес-бар паузи */}
-      <div className="w-full max-w-6xl h-1 bg-gray-600 rounded overflow-hidden">
-        {pause && (
-          <div key={barK}
-               className="h-full bg-green-500"
-               style={{ animation: `bar ${GAP}ms linear forwards` }} />
-        )}
+      <div className="w-full max-w-6xl h-1 bg-gray-600 rounded overflow-hidden mb-4">
+        <div
+          key={barK}
+          className="h-full bg-green-500"
+          style={{ animation: `bar ${GAP}ms linear forwards` }}
+        />
       </div>
 
-      {/* локальний CSS для бара */}
       <style jsx>{`
-        @keyframes bar { from { width: 100%; } to { width: 0%; } }
+        @keyframes bar {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
       `}</style>
+
+      {/* Вибір вручну */}
+      <div className="flex gap-4 mb-4">
+        {colors.map((color) => (
+          <div
+            key={color}
+            className={`cursor-pointer p-1 rounded border-2
+              ${selectedIcon === color ? 'border-yellow-400' : 'border-transparent'}`}
+            onClick={() => handleSelect(color)}
+          >
+            <Image src={iconMap[color]} alt={color} width={50} height={50} unoptimized />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
