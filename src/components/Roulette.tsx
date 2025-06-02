@@ -56,41 +56,58 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
 
           {/* Контент іконок */}
           <div className="flex items-center h-full gap-1 py-0 relative z-0">
-            {Array.from({ length: VISIBLE_ICONS }).map((_, idx) => {
-              const isCenter = idx === CENTER_INDEX;
-              return (
-                <div
-                  key={idx}
-                  className="w-[90px] h-[90px] flex items-center justify-center relative shrink-0"
-                >
-                  <Image
-                    src={iconMap[isCenter ? centerIcon : colors[Math.floor(Math.random() * colors.length)]]}
-                    alt="icon"
-                    width={90}
-                    height={90}
-                    unoptimized
-                    className="brightness-75" 
-                  />
-                  {isCenter && (
-                    <div className="absolute flex flex-col items-center justify-center text-white font-bold text-xs z-20 ">
-                      <span className="text-[10px]">ROLLING IN:</span>
-                      <span className="text-[20px]">14.26</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {/* Генеруємо список іконок без підрядних повторів */}
+            {(() => {
+  const iconList: string[] = [];
+  let lastColor: string | null = null;
+  for (let i = 0; i < VISIBLE_ICONS; i++) {
+    if (i === CENTER_INDEX) {
+      iconList.push(centerIcon);
+      lastColor = centerIcon;
+    } else {
+      let color: string;
+      do {
+        color = colors[Math.floor(Math.random() * colors.length)];
+      } while (color === lastColor);
+      iconList.push(color);
+      lastColor = color;
+    }
+  }
+
+  return iconList.map((color, idx) => {
+    const isCenter = idx === CENTER_INDEX;
+    return (
+      <div key={idx} className="w-[90px] h-[90px] flex items-center justify-center relative shrink-0">
+        <Image
+          src={iconMap[color]}
+          alt="icon"
+          width={90}
+          height={90}
+          unoptimized
+          className="brightness-75"
+        />
+        {isCenter && (
+          <div className="absolute flex flex-col items-center justify-center text-white font-bold text-xs z-20 ">
+            <span className="text-[10px]">ROLLING IN:</span>
+            <span className="text-[20px]">14.26</span>
+          </div>
+        )}
+      </div>
+    );
+  });
+})()}
+
           </div>
         </div>
 
-        {/* Прогрес-бар під рулеткою */}
+        {/* Прогрес-бар зверху і завжди поверх */}
         <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-600 z-20 overflow-hidden -mt-2">
-  <div
-    key={barK}
-    className="h-full bg-green-500"
-    style={{ animation: `bar ${GAP}ms linear forwards` }}
-  />
-</div>
+          <div
+            key={barK}
+            className="h-full bg-green-500"
+            style={{ animation: `bar ${GAP}ms linear forwards` }}
+          />
+        </div>
       </div>
 
       {/* Вибір вручну */}
