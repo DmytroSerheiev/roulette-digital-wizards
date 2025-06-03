@@ -18,13 +18,16 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
   const [showBar, setShowBar] = useState(true);
   const [isWinnerShown, setIsWinnerShown] = useState(false);
   const [iconList, setIconList] = useState<string[]>([]);
+  const [spinning, setSpinning] = useState(false);
+  const [spinSpeed, setSpinSpeed] = useState(30);
 
   const VISIBLE_ICONS = 13;
   const CENTER_INDEX = Math.floor(VISIBLE_ICONS / 2);
 
   const FIRST_PHASE = 2000;
   const RESULT_PAUSE = 4000;
-  const GAP = FIRST_PHASE + 1000;
+  const SPIN_DURATION = 2000;
+  const GAP = FIRST_PHASE + SPIN_DURATION;
 
   const generateIconList = (center: string): string[] => {
     const list: string[] = [];
@@ -55,19 +58,35 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
     let secondPhaseTimeout: NodeJS.Timeout;
     let fullCycleTimeout: NodeJS.Timeout;
     let postWinTimeout: NodeJS.Timeout;
+    let spinInterval: NodeJS.Timeout;
 
     const startCycle = () => {
       setShowBar(true);
       setIsWinnerShown(false);
+      setSpinning(false);
+      setSpinSpeed(30);
       const initial = 'red';
       setDisplayedIcon(initial);
       setIconList(generateIconList(initial));
 
       secondPhaseTimeout = setTimeout(() => {
         setShowBar(false);
+        setSpinning(true);
+        let speed = 30;
+
+        spinInterval = setInterval(() => {
+          const spin = generateIconList(colors[Math.floor(Math.random() * colors.length)]);
+          setIconList(spin);
+
+          speed += 10;
+          setSpinSpeed(speed);
+        }, speed);
       }, FIRST_PHASE);
 
       fullCycleTimeout = setTimeout(() => {
+        clearInterval(spinInterval);
+        setSpinning(false);
+
         const final = selectedIcon ?? colors[Math.floor(Math.random() * colors.length)];
         setDisplayedIcon(final);
         setIconList(generateIconList(final));
@@ -90,7 +109,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
       clearTimeout(fullCycleTimeout);
       clearTimeout(postWinTimeout);
     };
-  }, [selectedIcon]);
+  }, [barK]);
 
   const handleSelect = (color: string) => {
     setSelectedIcon((prev) => (prev === color ? null : color));
@@ -109,7 +128,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
           <div className="absolute left-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
           <div className="absolute right-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-l from-black/80 via-black/40 to-transparent" />
 
-          <div className="flex items-center h-full gap-1 py-0 relative z-0">
+          <div className="flex items-center h-full gap-1 py-0 relative z-0 transition-transform duration-700 ease-in-out">
             {iconList.map((color, idx) => {
               const isCenter = idx === CENTER_INDEX;
               return (
