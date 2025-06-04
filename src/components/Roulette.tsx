@@ -27,8 +27,8 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
   const CENTER_INDEX = 6 - 2.25; // Зсув виграшу лівіше
   const ITEM_WIDTH = 90;
 
-  const FIRST_PHASE = 2000;       // Тривалість прогрес-бара перед стартом (мс)
-  const SPIN_DURATION = 3000;     // Тривалість анімації прокрутки (мс)
+  const FIRST_PHASE = 20000;       // Тривалість прогрес-бара перед стартом (мс)
+  const SPIN_DURATION = 8000;     // Тривалість анімації прокрутки (мс)
   const RESULT_PAUSE = 2000;      // Пауза після виграшу перед новим циклом (мс) ← редагуй це щоб скоротити або збільшити час
 
   function generateNonRepeatingSpin(length: number): string[] {
