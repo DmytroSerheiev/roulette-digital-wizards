@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 
 const colors = ['red', 'black', 'green', 'joker'];
@@ -12,6 +12,8 @@ const iconMap: Record<string, string> = {
 };
 
 export default function Roulette({ onWin }: { onWin: (color: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const [displayedIcon, setDisplayedIcon] = useState<string>('red');
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [barK, setBarK] = useState(0);
@@ -19,100 +21,72 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
   const [isWinnerShown, setIsWinnerShown] = useState(false);
   const [iconList, setIconList] = useState<string[]>([]);
   const [spinning, setSpinning] = useState(false);
-  const [spinSpeed, setSpinSpeed] = useState(30);
+  const [offset, setOffset] = useState(0);
 
   const VISIBLE_ICONS = 13;
   const CENTER_INDEX = Math.floor(VISIBLE_ICONS / 2);
+  const ITEM_WIDTH = 90;
 
   const FIRST_PHASE = 2000;
   const RESULT_PAUSE = 4000;
-  const SPIN_DURATION = 2000;
-  const GAP = FIRST_PHASE + SPIN_DURATION;
+  const SPIN_DURATION = 3000;
+  const TOTAL_SPIN_ICONS = 60;
 
-  const generateIconList = (center: string): string[] => {
+  const buildSpinList = (final: string): string[] => {
     const list: string[] = [];
-    let lastColor: string | null = null;
-
-    for (let i = 0; i < VISIBLE_ICONS; i++) {
-      let color: string;
-
-      if (i === CENTER_INDEX) {
-        color = center;
-      } else {
-        const forbidden = [lastColor];
-        if (i === CENTER_INDEX - 1) forbidden.push(center);
-        if (i === CENTER_INDEX + 1) forbidden.push(center);
-
-        const availableColors = colors.filter((c) => !forbidden.includes(c));
-        color = availableColors[Math.floor(Math.random() * availableColors.length)];
-      }
-
-      list.push(color);
-      lastColor = color;
+    for (let i = 0; i < TOTAL_SPIN_ICONS - 1; i++) {
+      list.push(colors[Math.floor(Math.random() * colors.length)]);
     }
-
+    list.push(final); // переможець в кінці
     return list;
   };
 
   useEffect(() => {
-    let secondPhaseTimeout: NodeJS.Timeout;
-    let fullCycleTimeout: NodeJS.Timeout;
+    let animationTimeout: NodeJS.Timeout;
     let postWinTimeout: NodeJS.Timeout;
-    let spinInterval: NodeJS.Timeout;
 
     const startCycle = () => {
       setShowBar(true);
       setIsWinnerShown(false);
       setSpinning(false);
-      setSpinSpeed(30);
-      const initial = 'red';
-      setDisplayedIcon(initial);
-      setIconList(generateIconList(initial));
+      setSelectedIcon(null);
+      setOffset(0);
 
-      secondPhaseTimeout = setTimeout(() => {
+      const final = selectedIcon ?? colors[Math.floor(Math.random() * colors.length)];
+      const spinIcons = buildSpinList(final);
+      setIconList(spinIcons);
+
+      animationTimeout = setTimeout(() => {
         setShowBar(false);
         setSpinning(true);
-        let speed = 30;
 
-        spinInterval = setInterval(() => {
-          const spin = generateIconList(colors[Math.floor(Math.random() * colors.length)]);
-          setIconList(spin);
+        const totalOffset = (spinIcons.length - CENTER_INDEX - 1) * ITEM_WIDTH;
+        setOffset(totalOffset);
 
-          speed += 10;
-          setSpinSpeed(speed);
-        }, speed);
+        setTimeout(() => {
+          setSpinning(false);
+          setDisplayedIcon(final);
+          setIsWinnerShown(true);
+          onWin(final);
+
+          postWinTimeout = setTimeout(() => {
+            setIsWinnerShown(false);
+            setBarK(k => k + 1);
+          }, RESULT_PAUSE);
+        }, SPIN_DURATION);
       }, FIRST_PHASE);
-
-      fullCycleTimeout = setTimeout(() => {
-        clearInterval(spinInterval);
-        setSpinning(false);
-
-        const final = selectedIcon ?? colors[Math.floor(Math.random() * colors.length)];
-        setDisplayedIcon(final);
-        setIconList(generateIconList(final));
-        setIsWinnerShown(true);
-
-        onWin(final);
-
-        postWinTimeout = setTimeout(() => {
-          setIsWinnerShown(false);
-          setBarK((k) => k + 1);
-          startCycle();
-        }, RESULT_PAUSE);
-      }, GAP);
     };
 
     startCycle();
 
     return () => {
-      clearTimeout(secondPhaseTimeout);
-      clearTimeout(fullCycleTimeout);
+      clearTimeout(animationTimeout);
       clearTimeout(postWinTimeout);
     };
   }, [barK]);
 
   const handleSelect = (color: string) => {
-    setSelectedIcon((prev) => (prev === color ? null : color));
+    setSelectedIcon(prev => (prev === color ? null : color));
   };
 
   return (
@@ -128,9 +102,18 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
           <div className="absolute left-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
           <div className="absolute right-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-l from-black/80 via-black/40 to-transparent" />
 
-          <div className="flex items-center h-full gap-1 py-0 relative z-0 transition-transform duration-700 ease-in-out">
+          <div
+            className="flex items-center h-full gap-1 py-0 relative z-0"
+            ref={containerRef}
+            style={{
+              transform: `translateX(-${offset}px)`,
+              transition: spinning
+                ? `transform ${SPIN_DURATION}ms cubic-bezier(0.25, 1, 0.5, 1)`
+                : 'none',
+            }}
+          >
             {iconList.map((color, idx) => {
-              const isCenter = idx === CENTER_INDEX;
+              const isCenter = idx === iconList.length - 1;
               return (
                 <div key={idx} className="w-[90px] h-[90px] flex items-center justify-center relative shrink-0">
                   <Image
@@ -172,7 +155,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
       </div>
 
       <div className="flex gap-4 mt-6">
-        {colors.map((color) => (
+        {colors.map(color => (
           <div
             key={color}
             className={`cursor-pointer p-1 rounded border-2 transition
