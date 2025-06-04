@@ -24,21 +24,38 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
   const [offset, setOffset] = useState(0);
 
   const VISIBLE_ICONS = 13;
-  const CENTER_INDEX = Math.floor(VISIBLE_ICONS / 2);
+  const CENTER_INDEX = 6 - 2.25; // Зсув виграшу лівіше
   const ITEM_WIDTH = 90;
 
-  const FIRST_PHASE = 2000;
-  const RESULT_PAUSE = 4000;
-  const SPIN_DURATION = 3000;
-  const TOTAL_SPIN_ICONS = 60;
+  const FIRST_PHASE = 2000;       // Тривалість прогрес-бара перед стартом (мс)
+  const SPIN_DURATION = 3000;     // Тривалість анімації прокрутки (мс)
+  const RESULT_PAUSE = 2000;      // Пауза після виграшу перед новим циклом (мс) ← редагуй це щоб скоротити або збільшити час
+
+  function generateNonRepeatingSpin(length: number): string[] {
+    const result: string[] = [];
+    let prev: string | null = null;
+
+    for (let i = 0; i < length; i++) {
+      let next: string;
+      do {
+        next = colors[Math.floor(Math.random() * colors.length)];
+      } while (next === prev);
+
+      result.push(next);
+      prev = next;
+    }
+
+    return result;
+  }
 
   const buildSpinList = (final: string): string[] => {
-    const list: string[] = [];
-    for (let i = 0; i < TOTAL_SPIN_ICONS - 1; i++) {
-      list.push(colors[Math.floor(Math.random() * colors.length)]);
-    }
-    list.push(final); // переможець в кінці
-    return list;
+    const oneSpin = generateNonRepeatingSpin(20);
+    const fullSpin = [...oneSpin, ...oneSpin, ...oneSpin];
+    const extended = [...fullSpin, final];
+    const prefix = extended.slice(-VISIBLE_ICONS);
+    const suffix = extended.slice(0, VISIBLE_ICONS);
+
+    return [...prefix, ...extended, ...suffix];
   };
 
   useEffect(() => {
@@ -60,7 +77,14 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
         setShowBar(false);
         setSpinning(true);
 
-        const totalOffset = (spinIcons.length - CENTER_INDEX - 1) * ITEM_WIDTH;
+        const winnerIndex = spinIcons.findIndex(
+          (item, i) => i >= VISIBLE_ICONS && item === final
+        );
+        const extraLoops = 1;
+        const fullLoopOffset = colors.length * 10 * ITEM_WIDTH;
+        const totalOffset =
+          fullLoopOffset * extraLoops + (winnerIndex - CENTER_INDEX) * ITEM_WIDTH;
+
         setOffset(totalOffset);
 
         setTimeout(() => {
@@ -69,6 +93,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
           setIsWinnerShown(true);
           onWin(final);
 
+          // ⏳ Пауза після показу виграшу перед новим циклом
           postWinTimeout = setTimeout(() => {
             setIsWinnerShown(false);
             setBarK(k => k + 1);
@@ -91,12 +116,14 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
 
   return (
     <div className="flex flex-col items-center">
+      {/* Індикатор виграшу зверху */}
       <div className="relative w-full max-w-6xl mb-1">
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 rotate-180 z-10
-                        w-0 h-0 border-l-[10px] border-r-[10px] border-b-[14px]
-                        border-l-transparent border-r-transparent border-b-yellow-400" />
+                w-0 h-0 border-l-[10px] border-r-[10px] border-b-[14px]
+                border-l-transparent border-r-transparent border-b-yellow-400" />
       </div>
 
+      {/* Рулетка */}
       <div className="relative w-[1210px]">
         <div className="relative overflow-hidden rounded-lg bg-neutral-800 h-[100px] mb-[4px]">
           <div className="absolute left-0 top-0 h-full w-[50px] z-10 pointer-events-none bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
@@ -108,12 +135,12 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
             style={{
               transform: `translateX(-${offset}px)`,
               transition: spinning
-                ? `transform ${SPIN_DURATION}ms cubic-bezier(0.25, 1, 0.5, 1)`
+                ? `transform ${SPIN_DURATION}ms cubic-bezier(0.1, 0.9, 0.3, 1)`
                 : 'none',
             }}
           >
             {iconList.map((color, idx) => {
-              const isCenter = idx === iconList.length - 1;
+              const isCenter = offset / ITEM_WIDTH + CENTER_INDEX === idx;
               return (
                 <div key={idx} className="w-[90px] h-[90px] flex items-center justify-center relative shrink-0">
                   <Image
@@ -125,7 +152,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
                     className="brightness-75"
                   />
                   {isCenter && isWinnerShown && (
-                    <div className="absolute z-30 pointer-events-none">
+                    <div className="absolute z-30">
                       <div className="animate-scaleWin rounded-lg overflow-hidden">
                         <Image
                           src={iconMap[color]}
@@ -143,6 +170,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
           </div>
         </div>
 
+        {/* Прогрес-бар перед стартом */}
         {showBar && (
           <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gray-600 z-20 overflow-hidden -mt-2">
             <div
@@ -154,6 +182,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
         )}
       </div>
 
+      {/* Вибір кольору */}
       <div className="flex gap-4 mt-6">
         {colors.map(color => (
           <div
@@ -167,6 +196,7 @@ export default function Roulette({ onWin }: { onWin: (color: string) => void }) 
         ))}
       </div>
 
+      {/* CSS анімації */}
       <style jsx>{`
         @keyframes bar {
           from { width: 100%; }
